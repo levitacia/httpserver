@@ -37,7 +37,23 @@ func handleConnection(conn net.Conn) {
 	}
 
 	fmt.Println(req)
-	if strings.HasPrefix(req, "GET /echo/") {
+	if strings.HasPrefix(req, "GET /user-agent") {
+		userAgent := ""
+		for {
+			line, err := reader.ReadString('\n')
+			if err != nil || line == "\r\n" {
+				break
+			}
+			if strings.HasPrefix(line, "User-Agent:") {
+				userAgent = strings.TrimPrefix(line, "User-Agent: ")
+				userAgent = strings.TrimSpace(userAgent)
+				break
+			}
+		}
+		response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(userAgent), userAgent)
+		conn.Write([]byte(response))
+		return
+	} else if strings.HasPrefix(req, "GET /echo/") {
 		parts := strings.Split(req, " ")
 		if len(parts) > 1 {
 			urlPart := parts[1]
