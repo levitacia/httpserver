@@ -1,74 +1,52 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
-	"net"
+	"net/http"
 	"os"
 	"strings"
 )
 
 func main() {
-	l, err := net.Listen("tcp", "localhost:6969")
-	if err != nil {
-		fmt.Println("Failed to bind to port 6969")
-		os.Exit(1)
-	}
-	defer l.Close()
+	http.HandleFunc("/user-agent", userAgentHandler)
+	http.HandleFunc("/echo/", echoHandler)
+	http.HandleFunc("/", rootHandler)
 
-	for {
-		conn, err := l.Accept()
-		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
-			continue
-		}
-		go handleConnection(conn)
+	fmt.Println("start with port 6969")
+	if err := http.ListenAndServe(":6969", nil); err != nil {
+		fmt.Println("Error starting server: ", err.Error())
+		os.Exit(1)
 	}
 }
 
-func handleConnection(conn net.Conn) {
-	defer conn.Close()
-
-	reader := bufio.NewReader(conn)
-	req, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("Error reading request: ", err.Error())
+func echoHandler(w http.ResponseWriter, r *http.Request) {
+	message := strings.TrimPrefix(r.URL.Path, "/echo/")
+	if message == "" {
+		http.NotFound(w, r)
 		return
 	}
 
-	fmt.Println(req)
-	if strings.HasPrefix(req, "GET /user-agent") {
-		userAgent := ""
-		for {
-			line, err := reader.ReadString('\n')
-			if err != nil || line == "\r\n" {
-				break
-			}
-			if strings.HasPrefix(line, "User-Agent:") {
-				userAgent = strings.TrimPrefix(line, "User-Agent: ")
-				userAgent = strings.TrimSpace(userAgent)
-				break
-			}
-		}
-		response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(userAgent), userAgent)
-		conn.Write([]byte(response))
-		return
-	} else if strings.HasPrefix(req, "GET /echo/") {
-		parts := strings.Split(req, " ")
-		if len(parts) > 1 {
-			urlPart := parts[1]
-			urlParts := strings.Split(urlPart, "/")
-			if len(urlParts) > 2 {
-				str := urlParts[2]
-				response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(str), str)
-				conn.Write([]byte(response))
-				return
-			}
-		}
-	} else if strings.HasPrefix(req, "GET / HTTP/1.1") {
-		conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(message))
+}
+
+func userAgentHandler(w http.ResponseWriter, r *http.Request) {
+	userAgent := r.Header.Get("User-Agent")
+	if userAgent == "" {
+		http.NotFound(w, r)
 		return
 	}
 
-	conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+	w.Header().Set("Content-Type", "text/plain")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(userAgent))
+}
+
+func rootHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
