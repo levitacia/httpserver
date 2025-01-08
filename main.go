@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -39,13 +40,32 @@ func rootHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func returnFileHandler(w http.ResponseWriter, r *http.Request) {
+func fileHandler(w http.ResponseWriter, r *http.Request) {
 	filePath := "tmp/" + strings.TrimPrefix(r.URL.Path, "/file/")
 	fileInfo, err := os.Stat(filePath)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
+	if r.Method == http.MethodPost {
+		body, err := io.ReadAll(r.Body)
+		defer r.Body.Close()
+
+		if err != nil {
+			http.Error(w, "cant read request body", http.StatusBadRequest)
+			return
+		}
+
+		err = os.WriteFile(filePath, body, 0644)
+		if err != nil {
+			http.Error(w, "cant write this file", http.StatusBadRequest)
+			return
+		}
+
+		w.WriteHeader(http.StatusCreated)
+		return
+	}
+
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		http.NotFound(w, r)
@@ -61,7 +81,7 @@ func main() {
 	http.HandleFunc("/user-agent", userAgentHandler)
 	http.HandleFunc("/echo/", echoHandler)
 	http.HandleFunc("/", rootHandler)
-	http.HandleFunc("/file/", returnFileHandler)
+	http.HandleFunc("/file/", fileHandler)
 
 	fmt.Println("start with port 6969")
 	if err := http.ListenAndServe(":6969", nil); err != nil {
