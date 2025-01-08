@@ -9,6 +9,10 @@ import (
 )
 
 func echoHandler(w http.ResponseWriter, r *http.Request) {
+	acceptEncodings := r.Header.Values("Accept-Encoding")
+	if len(acceptEncodings) > 0 && acceptEncodings[0] == "gzip" {
+		w.Header().Set("Content-Encoding", "gzip")
+	}
 	message := strings.TrimPrefix(r.URL.Path, "/echo/")
 	if message == "" {
 		http.NotFound(w, r)
@@ -83,8 +87,8 @@ func main() {
 	http.HandleFunc("/", rootHandler)
 	http.HandleFunc("/file/", fileHandler)
 
-	fmt.Println("start with port 6969")
-	if err := http.ListenAndServe(":6969", nil); err != nil {
+	fmt.Println("start with port 8080")
+	if err := http.ListenAndServe(":8080", nil); err != nil {
 		fmt.Println("Error starting server: ", err.Error())
 		os.Exit(1)
 	}
