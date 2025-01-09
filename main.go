@@ -1,6 +1,7 @@
 package main
 
 import (
+	"compress/gzip"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,14 +16,20 @@ func echoHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "text/plain")
+
 	acceptEncodings := r.Header.Values("Accept-Encoding")
 	if len(acceptEncodings) > 0 {
 		if strings.Contains(acceptEncodings[0], "gzip") {
 			w.Header().Set("Content-Encoding", "gzip")
+			gz := gzip.NewWriter(w)
+			defer gz.Close()
+			w.WriteHeader(http.StatusOK)
+			gz.Write([]byte(message))
+			return
 		}
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(message))
 }
