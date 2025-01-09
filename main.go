@@ -9,14 +9,17 @@ import (
 )
 
 func echoHandler(w http.ResponseWriter, r *http.Request) {
-	acceptEncodings := r.Header.Values("Accept-Encoding")
-	if len(acceptEncodings) > 0 && acceptEncodings[0] == "gzip" {
-		w.Header().Set("Content-Encoding", "gzip")
-	}
 	message := strings.TrimPrefix(r.URL.Path, "/echo/")
 	if message == "" {
 		http.NotFound(w, r)
 		return
+	}
+
+	acceptEncodings := r.Header.Values("Accept-Encoding")
+	if len(acceptEncodings) > 0 {
+		if strings.Contains(acceptEncodings[0], "gzip") {
+			w.Header().Set("Content-Encoding", "gzip")
+		}
 	}
 
 	w.Header().Set("Content-Type", "text/plain")
